@@ -1,0 +1,15 @@
+# HTTP & HTML Parsing
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# LLM (OpenAI-compatible SDK for DashScope/Qwen)
+openai>=1.10.0
+
+# Configuration
+pyyaml>=6.0.1
+
+# Testing
+pytest>=7.4.0
+pytest-mock>=3.12.0
+responses>=0.24.0
