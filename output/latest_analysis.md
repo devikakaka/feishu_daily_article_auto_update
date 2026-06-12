@@ -1,14 +1,4 @@
-# 📰 每日文章自动分析 / Daily Article Analysis
-
-> ⏰ 自动运行: 每天 9:00 AM (北京时间) | GitHub Actions 驱动
-
-## 📊 最新分析 / Latest Analysis
-
-- **日期 (Date)**: 2026-06-12
-- **文章数量 (Articles)**: 1
-- **分析模型 (Model)**: qwen-plus
-
----
+# 文章分析 - 2026-06-12 05:49
 
 以下是对人民网-壹时评文章《壹时评：别让“乱跳转”偷走数字生活的松弛感》的深度分析：
 
@@ -58,26 +48,3 @@
 --- 
 
 > **延伸思考**：本文的深层价值在于，它将“数字生活松弛感”这一感性概念升华为衡量数字文明程度的关键指标——当技术不再令人绷紧神经、反复确认、步步设防，真正的便利才真正降临。这恰是数字中国建设从“有没有”迈向“好不好”的重要分水岭。
-
----
-
-## 📚 历史记录 / History
-
-| 日期 | 文章数 | 本地文件 | 飞书文档 |
-|------|--------|----------|----------|
-| 2026-06-12 | 1 | [查看](output/latest_analysis.md) | [飞书](https://feishu.cn/wiki/J7TjwzC7ui08K7ktHOQcDVJLnZc) |
-
----
-
-## 🛠️ 关于 / About
-
-本仓库使用以下技术栈:
-- **爬虫**: Python + requests + BeautifulSoup
-- **分析**: Qwen (通义千问) via DashScope API
-- **发布**: Feishu Wiki via Open API
-- **调度**: GitHub Actions (cron)
-
-详细配置说明请查看 `config/config.example.yaml` 和 `docs/FEISHU_SETUP.md`。
-
----
-*由 GitHub Actions 自动生成 ⚡ Powered by Qwen + Feishu*
