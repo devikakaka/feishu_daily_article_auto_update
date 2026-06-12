@@ -317,7 +317,7 @@ def _analysis_module_style(text: str) -> Dict[str, Any]:
         ("段落结构", {"background_color": 2, "border_color": 2}),
         ("金句", {"background_color": 5, "border_color": 5}),
         ("关键词句", {"background_color": 4, "border_color": 4}),
-        ("做法要点", {"background_color": 4, "border_color": 4}),
+        ("做法要点", {"background_color": 3, "border_color": 3}),
         ("事例", {"background_color": 6, "border_color": 6}),
         ("升华分析", {"background_color": 1, "border_color": 1}),
     ]

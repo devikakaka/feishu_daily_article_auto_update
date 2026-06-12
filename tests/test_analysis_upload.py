@@ -13,12 +13,32 @@ def test_render_analysis_file_includes_metadata():
         source_name="人民网-人民时评",
         article_url="https://example.com/a1",
         target_date="2026-06-12",
+        article_date="2026-06-11",
         body="# 文章一\n\n内容",
     )
 
     assert "source_name: 人民网-人民时评" in content
     assert "article_url: https://example.com/a1" in content
+    assert "date: '2026-06-11'" in content
     assert content.startswith("---\n")
+
+
+def test_normalize_analysis_header_replaces_model_date():
+    """The saved/uploaded body should use scraped metadata instead of model-guessed dates."""
+    body = (
+        "# 南方日报评论员：赋能千行百业 智向美好未来\n"
+        "> 来源：南方日报 ｜ 日期：2024年 ｜ https://wrong.example.com\n\n"
+        "正文"
+    )
+
+    normalized = main_module._normalize_analysis_header(
+        body,
+        source_name="南方网-南方日报评论员",
+        article_url="https://news.southcn.com/node_ac2b0b62a4/24a27e6c7a.shtml",
+        article_date="2026-06-09",
+    )
+
+    assert "> 来源：南方日报 ｜ 日期：2026-06-09 ｜ https://news.southcn.com/node_ac2b0b62a4/24a27e6c7a.shtml" in normalized
 
 
 @patch("src.main.FeishuUploader")

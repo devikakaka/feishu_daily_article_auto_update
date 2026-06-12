@@ -112,7 +112,12 @@ def main():
 
     for index, article in enumerate(articles, start=1):
         print(f"  Article {index}/{len(articles)}: {article.title}")
-        article_analysis = analyzer.analyze([article])
+        article_analysis = _normalize_analysis_header(
+            analyzer.analyze([article]),
+            source_name=article.source_name,
+            article_url=article.url,
+            article_date=article.date or target_date,
+        )
         article_document_title = _build_article_document_title(article.title, target_date)
         analysis_sections.append(f"# {article_document_title}\n\n{article_analysis}")
 
@@ -124,6 +129,7 @@ def main():
                     source_name=article.source_name,
                     article_url=article.url,
                     target_date=target_date,
+                    article_date=article.date,
                     body=article_analysis,
                 ),
                 encoding="utf-8",
@@ -189,13 +195,60 @@ def _build_article_document_title(article_title: str, date_str: str) -> str:
     return f"{article_title}-{date_str}"
 
 
-def _render_analysis_file(title: str, source_name: str | None, article_url: str, target_date: str, body: str) -> str:
+def _normalize_analysis_header(
+    body: str,
+    *,
+    source_name: str | None,
+    article_url: str,
+    article_date: str,
+) -> str:
+    """Replace the model-generated source/date line with authoritative metadata."""
+    lines = body.splitlines()
+    quote_index = next((i for i, line in enumerate(lines) if line.startswith("> 来源：")), None)
+    source_display = _analysis_source_display_name(source_name)
+    header_line = f"> 来源：{source_display} ｜ 日期：{article_date} ｜ {article_url}"
+
+    if quote_index is not None:
+        lines[quote_index] = header_line
+        return "\n".join(lines)
+
+    insert_at = 1 if lines and lines[0].startswith("# ") else 0
+    if lines and insert_at < len(lines) and lines[insert_at].strip():
+        lines.insert(insert_at, "")
+        insert_at += 1
+    lines.insert(insert_at, header_line)
+    return "\n".join(lines)
+
+
+def _analysis_source_display_name(source_name: str | None) -> str:
+    """Map configured source names to the display labels used in analysis markdown."""
+    source_name = (source_name or "").strip()
+    display_names = {
+        "人民网-人民时评": "人民日报",
+        "南方网-南方日报评论员": "南方日报",
+        "人民论坛网评": "人民论坛",
+    }
+    if source_name in display_names:
+        return display_names[source_name]
+    if "-" in source_name:
+        return source_name.split("-")[-1]
+    return source_name or "未知来源"
+
+
+def _render_analysis_file(
+    title: str,
+    source_name: str | None,
+    article_url: str,
+    target_date: str,
+    body: str,
+    article_date: str | None = None,
+) -> str:
     """Render a markdown analysis file with YAML front matter for later re-upload."""
     front_matter = {
         "title": title,
         "source_name": source_name or "",
         "article_url": article_url,
-        "date": target_date,
+        "date": article_date or target_date,
     }
     return (
         "---\n"
@@ -340,7 +393,12 @@ def _process_single_url(
         return
 
     analyzer = LLMAnalyzer(config)
-    article_analysis = analyzer.analyze([article])
+    article_analysis = _normalize_analysis_header(
+        analyzer.analyze([article]),
+        source_name=article.source_name,
+        article_url=article.url,
+        article_date=article.date or target_date,
+    )
     article_document_title = _build_article_document_title(article.title, target_date)
 
     if config["output"].get("save_analysis", False):
@@ -353,6 +411,7 @@ def _process_single_url(
                 source_name=article.source_name,
                 article_url=article.url,
                 target_date=target_date,
+                article_date=article.date,
                 body=article_analysis,
             ),
             encoding="utf-8",
