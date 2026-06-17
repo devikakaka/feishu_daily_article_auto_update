@@ -82,7 +82,7 @@ llm:
   # DashScope OpenAI 兼容端点
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   # 模型名称（qwen-plus 性价比最优，qwen-max 质量最佳）
-  model: "qwen3.6-35b-a3b"
+  model: "qwen3.7-max"
 
   # 系统提示词：指导模型如何分析文章
   system_prompt: |
@@ -174,7 +174,7 @@ llm:
 
     # 💡 精华总结
     ## 📋 全文结构速览
-    表格：段落、论点、核心关键词、在文中的层次
+    表格：段落、中心论点、核心关键词、在文中的层次
 
     ## ✨ 精选金句
     表格：金句 | 关键词 | 适用话题 | 仿写思路
