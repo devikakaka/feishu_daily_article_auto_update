@@ -72,6 +72,28 @@ def normalize_article_title(title: str) -> str:
     return cleaned or title.strip()
 
 
+def title_matches_filter(raw_title: str, normalized_title: str, title_filter: str) -> bool:
+    """Return True when a configured title filter matches raw or normalized text."""
+    if not title_filter:
+        return True
+
+    plain_filter = html.unescape(title_filter).strip()
+    normalized_filter = normalize_article_title(plain_filter)
+    candidates = {
+        html.unescape(raw_title or "").strip(),
+        normalized_title.strip(),
+    }
+    if plain_filter:
+        candidates.add(plain_filter)
+    if normalized_filter:
+        candidates.add(normalized_filter)
+
+    for candidate in candidates:
+        if candidate and (plain_filter in candidate or normalized_filter in candidate):
+            return True
+    return False
+
+
 @dataclass
 class Article:
     """Represents a scraped article."""
@@ -342,11 +364,12 @@ class MultiSourceScraper:
         for item in today_items:
             # Title may contain HTML tags (<em> for search highlighting)
             raw_title = item.get(api_config["title_field"], "")
-            title = normalize_article_title(BeautifulSoup(raw_title, "lxml").get_text())
+            plain_title = BeautifulSoup(raw_title, "lxml").get_text()
+            title = normalize_article_title(plain_title)
 
             # Apply title filter if configured
-            if title_filter and title_filter not in title:
-                print(f"  Skipped (title filter): {title[:40]}")
+            if not title_matches_filter(plain_title, title, title_filter):
+                print(f"  Skipped (title filter): {plain_title[:40]}")
                 continue
 
             # URL

@@ -321,6 +321,38 @@ def test_api_source_strips_html_from_title(mock_session, api_scraper_config):
     assert articles[0].title == "标题"
 
 
+@patch("src.scraper.requests.Session")
+def test_api_title_filter_matches_prefix_before_normalization(mock_session, api_scraper_config):
+    """Configured title filters should still match titles after normalization strips prefixes."""
+    today = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d")
+    api_scraper_config["scraper"]["sources"][0]["api"]["title_filter"] = "南方日报评论员"
+
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "data": {
+            "list": [
+                {
+                    "title": "<em>南</em><em>方</em><em>日</em><em>报</em><em>评</em><em>论</em><em>员</em>：迅速掀起学习贯彻习近平党建思想热潮",
+                    "pub_time": today,
+                    "url": "https://example.com/test",
+                    "post": {"content": "这是一篇南方日报评论员文章的正文内容，足够长了。"},
+                },
+            ]
+        }
+    }
+    mock_resp.raise_for_status = MagicMock()
+
+    mock_session_instance = MagicMock()
+    mock_session_instance.post.return_value = mock_resp
+    mock_session.return_value = mock_session_instance
+
+    scraper = MultiSourceScraper(api_scraper_config)
+    articles = scraper.scrape()
+
+    assert len(articles) == 1
+    assert articles[0].title == "迅速掀起学习贯彻习近平党建思想热潮"
+
+
 def test_normalize_article_title_removes_source_and_date_variants():
     """Title normalization should strip source labels and dates across common formats."""
     from src.scraper import normalize_article_title

@@ -168,11 +168,18 @@ jobs:
           set -euxo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          paths=(README.md)
+          git add README.md
           if [ -d output ]; then
-            paths+=(output)
+            # Only update already-tracked files under output/ so ignored generated
+            # artifacts do not make the workflow fail.
+            git add -u output
+
+            for path in output/latest_analysis.md output/analysis; do
+              if [ -e "$path" ] && git check-ignore -q "$path"; then
+                echo "::warning title=Ignored output::$path is ignored by .gitignore and will not be committed"
+              fi
+            done
           fi
-          git add "${paths[@]}"
           if git diff --cached --quiet; then
             echo "📭 No changes to commit"
           else
