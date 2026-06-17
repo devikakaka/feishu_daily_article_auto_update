@@ -17,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # Required to commit README changes back
+    env:
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
     steps:
       - name: Checkout repository
@@ -24,21 +27,93 @@ jobs:
         with:
           fetch-depth: 0   # Full history needed for commit
 
+      - name: Print workflow context
+        run: |
+          echo "::group::GitHub context"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "::endgroup::"
+          echo "::group::Runner context"
+          uname -a
+          pwd
+          ls -lah
+          echo "::endgroup::"
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Validate workflow inputs
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+        run: |
+          set -euo pipefail
+          missing=0
+
+          echo "::group::Required files"
+          for path in requirements.txt config/config.example.yaml src/main.py; do
+            if [ -f "$path" ]; then
+              echo "[ok] Found $path"
+            else
+              echo "::error title=Missing file::$path does not exist"
+              missing=1
+            fi
+          done
+          echo "::endgroup::"
+
+          echo "::group::Secret presence"
+          for var in DASHSCOPE_API_KEY FEISHU_APP_ID FEISHU_APP_SECRET; do
+            value="${!var:-}"
+            if [ -z "$value" ]; then
+              echo "::error title=Missing secret::$var is empty or not configured"
+              missing=1
+            else
+              echo "[ok] $var is configured (length ${#value})"
+            fi
+          done
+          echo "::endgroup::"
+
+          exit "$missing"
+
       - name: Install dependencies
         run: |
+          set -euxo pipefail
+          python --version
+          pip --version
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip list --format=columns
+          pip check
+          python -m pytest --version
+          python -m src.main --help > /tmp/src-main-help.txt
+          sed -n '1,80p' /tmp/src-main-help.txt
 
       - name: Prepare config file
         run: |
+          set -euxo pipefail
           mkdir -p config
           cp config/config.example.yaml config/config.yaml
+          echo "::group::Config summary"
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("config/config.yaml")
+          lines = path.read_text(encoding="utf-8").splitlines()
+          sections = [
+              line.split(":", 1)[0]
+              for line in lines
+              if line and not line.startswith((" ", "#")) and line.endswith(":")
+          ]
+          print(f"Prepared {path} with {len(lines)} lines")
+          print("Top-level sections:", ", ".join(sections))
+          PY
+          echo "::endgroup::"
 
       - name: Run scrape + analyze + publish pipeline
         env:
@@ -46,13 +121,58 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
         run: |
-          python -m src.main --config config/config.yaml
+          set -euo pipefail
+          mkdir -p logs
+          status=0
+          {
+            echo "Workflow started at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            echo "Repository: ${{ github.repository }}"
+            echo "Run ID: ${{ github.run_id }}"
+            python -m src.main --config config/config.yaml
+          } 2>&1 | tee logs/daily_scrape.log || status=$?
+          echo "Pipeline exit code: $status" | tee -a logs/daily_scrape.log
+          exit "$status"
+
+      - name: Dump failure diagnostics
+        if: failure()
+        run: |
+          echo "::group::Git status"
+          git status --short || true
+          echo "::endgroup::"
+          echo "::group::Directory snapshot"
+          find config logs output -maxdepth 3 -type f 2>/dev/null | sort || true
+          echo "::endgroup::"
+          echo "::group::Pipeline log tail"
+          tail -n 200 logs/daily_scrape.log || true
+          echo "::endgroup::"
+          echo "::group::Recent output preview"
+          for file in $(find output -maxdepth 2 -type f 2>/dev/null | sort | tail -n 5); do
+            echo "--- $file ---"
+            sed -n '1,80p' "$file" || true
+          done
+          echo "::endgroup::"
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-scrape-debug-${{ github.run_id }}
+          path: |
+            logs/
+            output/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Commit and push updated README and output
         run: |
+          set -euxo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md output/
+          paths=(README.md)
+          if [ -d output ]; then
+            paths+=(output)
+          fi
+          git add "${paths[@]}"
           if git diff --cached --quiet; then
             echo "📭 No changes to commit"
           else
